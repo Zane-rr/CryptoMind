@@ -1,0 +1,6 @@
+target/
+*.class
+*.jar
+dep-tree.txt
+HELP.md
+.mvn/
