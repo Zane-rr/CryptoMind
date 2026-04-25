@@ -28,6 +28,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 /**
  * INewsService 实现，负责新闻拉取、向量化入库和混合检索。
@@ -51,6 +54,9 @@ public class NewsServiceImpl implements INewsService {
 
     /** 向量相似度检索候选数 */
     private static final int KNN_CANDIDATES = 50;
+
+    /** 新闻检索最大时间窗口（天），超出范围的旧新闻不参与相似度检索 */
+    private static final int NEWS_MAX_AGE_DAYS = 2;
 
     private final NewsAdapter newsAdapter;
     private final NewsRepository newsRepository;
@@ -190,6 +196,21 @@ public class NewsServiceImpl implements INewsService {
         return new NewsSearchResponse(result, result.size());
     }
 
+    /**
+     * {@inheritDoc}
+     * 直接按 publishedAt 倒序分页查 ES，不走向量搜索，适用于前端新闻面板。
+     *
+     * @param limit 返回条数
+     * @return 按时间倒序的新闻列表
+     */
+    @Override
+    public List<NewsDTO> getLatestNews(int limit) {
+        PageRequest pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "publishedAt"));
+        return StreamSupport.stream(newsRepository.findAll(pageable).spliterator(), false)
+                .map(this::toNewsDTO)
+                .collect(Collectors.toList());
+    }
+
     // -------------------------------------------------------------------------
     // 私有方法：向量化
     // -------------------------------------------------------------------------
@@ -259,12 +280,17 @@ public class NewsServiceImpl implements INewsService {
      */
     private List<NewsDocument> vectorSearch(List<Float> queryVector, String symbol, int limit) {
         try {
-            // 内层过滤查询：有symbol时按currencies过滤，否则matchAll
-            var innerQuery = (symbol != null && !symbol.isBlank())
-                    ? co.elastic.clients.elasticsearch._types.query_dsl.Query.of(q -> q
-                            .term(t -> t.field("currencies").value(symbol)))
-                    : co.elastic.clients.elasticsearch._types.query_dsl.Query.of(q -> q
-                            .matchAll(m -> m));
+            String cutoff = LocalDateTime.now().minusDays(NEWS_MAX_AGE_DAYS).toString();
+
+            // 内层过滤查询：时间窗口必须满足，可选 currencies 过滤
+            var innerQuery = co.elastic.clients.elasticsearch._types.query_dsl.Query.of(q -> q
+                    .bool(b -> {
+                        b.filter(f -> f.range(r -> r.untyped(u -> u.field("publishedAt").gte(JsonData.of(cutoff)))));
+                        if (symbol != null && !symbol.isBlank()) {
+                            b.filter(f -> f.term(t -> t.field("currencies").value(symbol)));
+                        }
+                        return b;
+                    }));
 
             // 此版本 ES Java client 中 Script.Builder 直接持有 source/params，无 inline() 变体
             NativeQuery query = NativeQuery.builder()
@@ -298,9 +324,12 @@ public class NewsServiceImpl implements INewsService {
      */
     private List<NewsDocument> keywordSearch(String queryText, String symbol, int limit) {
         try {
+            String cutoff = LocalDateTime.now().minusDays(NEWS_MAX_AGE_DAYS).toString();
+
             NativeQuery query = NativeQuery.builder()
                     .withQuery(q -> q.bool(b -> {
                         b.must(m -> m.match(match -> match.field("title").query(queryText)));
+                        b.filter(f -> f.range(r -> r.untyped(u -> u.field("publishedAt").gte(JsonData.of(cutoff)))));
                         if (symbol != null && !symbol.isBlank()) {
                             b.filter(f -> f.term(t -> t.field("currencies").value(symbol)));
                         }

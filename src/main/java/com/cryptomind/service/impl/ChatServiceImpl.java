@@ -1,9 +1,13 @@
 package com.cryptomind.service.impl;
 
+import com.cryptomind.agent.AgentResult;
+import com.cryptomind.agent.CryptoAgentService;
+import com.cryptomind.dto.AnalysisCardDTO;
 import com.cryptomind.dto.ChatMessageDTO;
 import com.cryptomind.dto.ChatRequest;
 import com.cryptomind.dto.ChatResponse;
 import com.cryptomind.dto.HistoryResponse;
+import com.cryptomind.entity.AnalysisRecord;
 import com.cryptomind.entity.ChatMessage;
 import com.cryptomind.entity.ChatSession;
 import com.cryptomind.repository.AnalysisRecordRepository;
@@ -48,6 +52,7 @@ public class ChatServiceImpl implements IChatService {
     private final AnalysisRecordRepository analysisRecordRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final CryptoAgentService cryptoAgentService;
 
     /**
      * {@inheritDoc}
@@ -141,43 +146,64 @@ public class ChatServiceImpl implements IChatService {
 
     /**
      * {@inheritDoc}
+     * 工作流：先取历史上下文 → Agent聚合数据+流式分析（内部推送状态提示和chunk）
+     * → 分析完成后持久化user/assistant消息 → 有卡片则入库analysis_record
+     * → 推送done事件携带messageId和完整卡片 → emitter.complete()。
+     * 注意：saveMessage在analyzeStream完成后执行，避免当前问题被重复计入上下文。
      */
     @Override
     public void ask(ChatRequest request, SseEmitter emitter) {
         try {
             String sessionId = getOrCreateSession(request.getSessionId());
 
-            // 先取历史上下文，再保存本次消息，防止当前问题被重复计入上下文
+            // 先取历史上下文，再调用Agent，防止当前问题被重复计入上下文
             List<ChatMessage> contextMessages = getContextMessages(sessionId);
             log.debug("上下文消息条数：{}，sessionId={}", contextMessages.size(), sessionId);
 
-            // 保存用户消息
+            // Agent内部负责：状态提示推送、数据聚合、DeepSeek流式输出和chunk推送
+            AgentResult agentResult = cryptoAgentService.analyzeStream(
+                    request.getQuestion(), request.getSymbol(),
+                    contextMessages, emitter, sessionId, objectMapper);
+
+            // 分析完成后持久化用户消息和助手回复
             saveMessage(sessionId, "user", request.getQuestion());
+            ChatMessage assistantMsg = saveMessage(sessionId, "assistant", agentResult.getContent());
 
-            // TODO: [Agent集成] 此处替换为LangGraph4J Agent调用，传入contextMessages
-            String mockContent = "Agent功能开发中，sessionId: " + sessionId;
+            // 有分析卡片时入库 analysis_record，供历史记录和审计使用
+            if (agentResult.getAnalysisCard() != null) {
+                AnalysisCardDTO card = agentResult.getAnalysisCard();
+                AnalysisRecord record = new AnalysisRecord();
+                record.setSessionId(sessionId);
+                record.setSymbol(card.getSymbol());
+                record.setSuggestion(card.getSuggestion());
+                record.setConfidence(card.getConfidence());
+                record.setTechnicalSummary(card.getTechnicalSummary());
+                record.setNewsSummary(card.getNewsSummary());
+                record.setRiskAdvice(card.getRiskAdvice());
+                record.setFullResponse(agentResult.getContent());
+                analysisRecordRepository.save(record);
+            }
 
-            // 保存助手回复
-            ChatMessage assistantMsg = saveMessage(sessionId, "assistant", mockContent);
-
-            // 构造响应事件
-            ChatResponse response = new ChatResponse();
-            response.setSessionId(sessionId);
-            response.setMessageId(assistantMsg.getId());
-            response.setRole("assistant");
-            response.setContent(mockContent);
-
+            // 推送done事件，携带数据库生成的messageId和完整分析卡片
+            ChatResponse doneResponse = new ChatResponse();
+            doneResponse.setType("DONE");
+            doneResponse.setSessionId(sessionId);
+            doneResponse.setMessageId(assistantMsg.getId());
+            doneResponse.setRole("assistant");
+            doneResponse.setContent("");
+            doneResponse.setAnalysisCard(agentResult.getAnalysisCard());
             emitter.send(SseEmitter.event()
-                    .name("message")
-                    .data(objectMapper.writeValueAsString(response)));
-
+                    .name("done")
+                    .data(objectMapper.writeValueAsString(doneResponse)));
             emitter.complete();
         } catch (IOException e) {
             log.error("SSE推送失败，原因：{}", e.getMessage());
-            emitter.completeWithError(e);
+            // analyzeStream可能已调用completeWithError，忽略重复调用的异常
+            try { emitter.completeWithError(e); } catch (Exception ignored) {}
         } catch (Exception e) {
             log.error("ask处理异常，原因：{}", e.getMessage(), e);
-            emitter.completeWithError(e);
+            // analyzeStream可能已调用completeWithError，忽略重复调用的异常
+            try { emitter.completeWithError(e); } catch (Exception ignored) {}
         }
     }
 

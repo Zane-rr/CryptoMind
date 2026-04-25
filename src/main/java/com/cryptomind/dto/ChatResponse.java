@@ -9,6 +9,12 @@ import lombok.Data;
 @Data
 public class ChatResponse {
 
+    /**
+     * 消息类型：HEARTBEAT（节点日志）/ CONTENT（流式文字chunk）/ DONE（完成事件）
+     * 前端根据此字段路由渲染逻辑。
+     */
+    private String type;
+
     /** 会话ID，首次创建时由服务端生成 */
     private String sessionId;
 

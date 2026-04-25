@@ -1,8 +1,11 @@
 package com.cryptomind.service;
 
+import com.cryptomind.dto.NewsDTO;
 import com.cryptomind.dto.NewsSearchRequest;
 import com.cryptomind.dto.NewsSearchResponse;
 import com.cryptomind.exception.NewsApiException;
+
+import java.util.List;
 
 /**
  * News模块服务接口，提供新闻拉取入库和语义检索能力。
@@ -27,6 +30,14 @@ public interface INewsService {
      * @throws NewsApiException 向量化或ES查询失败时抛出
      */
     NewsSearchResponse searchNews(NewsSearchRequest request) throws NewsApiException;
+
+    /**
+     * 按发布时间倒序返回最新新闻，不走向量搜索，适用于前端新闻面板展示。
+     *
+     * @param limit 返回条数
+     * @return 新闻列表，按 publishedAt 降序排列
+     */
+    List<NewsDTO> getLatestNews(int limit);
 
     /**
      * 启动时检查 crypto_news 索引是否存在，不存在则创建（含dense_vector映射）。

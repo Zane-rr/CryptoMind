@@ -26,4 +26,16 @@ public class AnalysisCardDTO {
 
     /** 仓位风险建议 */
     private String riskAdvice;
+
+    /** 建议开仓价位，如"当前价附近95000-96000区间" */
+    private String entryPrice;
+
+    /** 止盈目标，如"第一目标:98000 USDT，第二目标:102000 USDT" */
+    private String takeProfitTargets;
+
+    /** 止损价位，如"止损价位:93000 USDT，跌破此位离场" */
+    private String stopLoss;
+
+    /** 建议仓位比例，如"建议仓位占总资金的10%-15%，轻仓试探" */
+    private String positionSize;
 }

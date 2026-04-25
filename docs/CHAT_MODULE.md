@@ -129,3 +129,64 @@ ChatMessageDTO:
     - 最后emitter.complete()
 
 所有类都需要完整的Javadoc注释，遵循CLAUDE.md中的代码规范。
+
+---
+
+## 6. 工作流程
+
+### 第一次提问（没有 sessionId）
+
+```
+用户：「BTC现在能买吗？」sessionId=空
+        ↓
+ChatController.ask()
+  - 创建 SseEmitter（建立SSE连接）
+  - 异步执行 ChatService.ask()
+        ↓
+ChatService.ask()
+  1. getOrCreateSession(null)
+      - sessionId 为空 → 生成 UUID
+      - 存入 MySQL chat_session 表
+      - 返回新 sessionId
+        ↓
+  2. getContextMessages(sessionId)
+      - 查 Redis → 没有（新会话）
+      - 查 MySQL → 也没有
+      - 返回空列表
+        ↓
+  3. 现在是 mock，直接返回：
+      "Agent功能开发中，sessionId: xxxx"
+      （后面这里会接真正的 Agent）
+        ↓
+  4. saveMessage(sessionId, "user", "BTC现在能买吗？")
+      - 存 MySQL chat_message 表
+      - 存 Redis（key: chat:session:xxxx）
+        ↓
+  5. saveMessage(sessionId, "assistant", "Agent功能开发中...")
+      - 存 MySQL
+      - 更新 Redis
+        ↓
+  6. emitter.send(content) → 流式推送给前端
+  7. emitter.complete() → 关闭 SSE 连接
+```
+
+### 第二次提问（有 sessionId）
+
+```
+用户：「为什么这么说？」sessionId=xxxx
+        ↓
+ChatService.ask()
+  1. getOrCreateSession("xxxx")
+      - 查 MySQL → 存在，直接用
+        ↓
+  2. getContextMessages("xxxx")
+      - 查 Redis → 有！取出来
+      - 返回：
+          [{role:user,      content:"BTC现在能买吗？"},
+           {role:assistant, content:"Agent功能开发中..."}]
+        ↓
+  3. 把历史消息 + 新问题拼成 Prompt 发给 DeepSeek
+      （现在是 mock，后面 Agent 接入后这里真实调用）
+        ↓
+  4. 保存新消息，推送响应
+```
