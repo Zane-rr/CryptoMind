@@ -1,0 +1,13 @@
+{
+  "name": "cryptomind-desktop",
+  "version": "1.0.0",
+  "description": "CryptoMind Desktop Client",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:float": "FLOAT_MODE=true electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

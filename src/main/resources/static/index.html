@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoMind</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0B0E11;
+  --bg2: #0D1017;
+  --bg3: #131722;
+  --bg4: #1A1D2B;
+  --border: #2A2D3A;
+  --accent: #4A9EFF;
+  --green: #00C853;
+  --red: #FF3B30;
+  --yellow: #FFB800;
+  --text1: #EAECEF;
+  --text2: #848E9C;
+  --text3: #4A5568;
+}
+
+body {
+  font-family: 'PingFang SC', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text1);
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+/* ── Layout ───────────────────────────────────────────────── */
+.app { display: flex; height: 100vh; }
+
+/* ── LEFT PANEL ───────────────────────────────────────────── */
+.left-panel {
+  width: 58%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.left-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.3px;
+  margin-right: 4px;
+}
+.logo em { font-style: normal; color: var(--accent); }
+
+.symbol-tabs { display: flex; gap: 2px; }
+
+.tab {
+  padding: 5px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  background: transparent;
+  border: none;
+  transition: background 0.18s, color 0.18s;
+}
+.tab:hover { color: var(--text1); }
+.tab.active { background: rgba(74,158,255,.15); color: var(--accent); }
+.sym-search { display: flex; align-items: center; gap: 4px; }
+.sym-search-btn { font-size: 16px; line-height: 1; }
+.sym-search-input {
+  width: 72px; padding: 4px 8px; border-radius: 7px;
+  background: var(--bg3); border: 1px solid var(--bg4);
+  color: var(--text1); font-size: 13px; font-weight: 600;
+  outline: none;
+}
+.sym-search-input:focus { border-color: var(--accent); }
+
+.tv-link {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text3);
+  text-decoration: none;
+}
+.tv-link:hover { color: var(--text2); }
+
+/* TradingView */
+.tv-wrapper { height: 50%; overflow: hidden; position: relative; flex-shrink: 0; }
+#tv-chart-container { width: 100%; height: 100%; }
+
+/* Portfolio bar */
+.portfolio-bar {
+  height: 10%;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  flex-shrink: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.portfolio-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  margin-right: 18px;
+  line-height: 1.4;
+}
+
+.portfolio-items { display: flex; gap: 0; flex: 1; overflow: hidden; }
+
+.portfolio-item {
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 8px;
+  transition: background 0.18s;
+  min-width: 90px;
+}
+.portfolio-item:hover { background: var(--bg4); }
+
+.pi-name { font-size: 11px; color: var(--text2); margin-bottom: 2px; }
+.pi-amount { font-size: 15px; font-weight: 700; color: var(--text1); }
+.pi-change { font-size: 12px; margin-top: 2px; font-weight: 500; }
+.up { color: var(--green); }
+.down { color: var(--red); }
+
+.portfolio-total { margin-left: auto; text-align: right; }
+.pt-label { font-size: 10px; color: var(--text2); letter-spacing: 0.6px; text-transform: uppercase; }
+.pt-value { font-size: 19px; font-weight: 700; color: var(--accent); margin-top: 3px; }
+
+.portfolio-empty { font-size: 12px; color: var(--text3); padding: 0 14px; }
+
+/* Watchlist panel */
+.watchlist-panel {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 160px;
+}
+.watchlist-header {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.watchlist-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.watchlist-input-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 12px;
+  gap: 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.watchlist-input {
+  flex: 1;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--text1);
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+  text-transform: uppercase;
+}
+.watchlist-input:focus { border-color: rgba(74,158,255,.4); }
+.watchlist-add-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .18s;
+}
+.watchlist-add-btn:hover { background: #3A8EEF; }
+.watchlist-items { overflow-y: auto; flex: 1; }
+.watchlist-item {
+  display: flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.watchlist-item-symbol { flex: 1; font-size: 12px; font-weight: 600; color: var(--text1); }
+.watchlist-del-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color .15s;
+}
+.watchlist-del-btn:hover { color: var(--red); }
+.watchlist-empty { font-size: 12px; color: var(--text3); padding: 7px 14px; }
+
+/* News panel */
+.news-panel {
+  flex: 1;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.news-panel-header {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.news-panel-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.news-refresh-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text3); margin-left: auto; flex-shrink: 0;
+}
+.news-refresh-dot.loading { background: var(--accent); animation: stepPulse 1s ease-in-out infinite; }
+.news-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.news-list::-webkit-scrollbar { width: 3px; }
+.news-list::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+.news-item {
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.news-item:hover { background: var(--bg4); }
+.news-item:last-child { border-bottom: none; }
+.news-item-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text1);
+  line-height: 1.4;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--text3);
+}
+.news-sentiment {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.news-sentiment.positive { background: rgba(0,200,83,.12); color: var(--green); }
+.news-sentiment.negative { background: rgba(255,59,48,.12); color: var(--red); }
+.news-sentiment.neutral  { background: rgba(132,142,156,.1); color: var(--text2); }
+.news-empty { font-size: 12px; color: var(--text3); padding: 16px 18px; }
+
+/* ── RIGHT PANEL ──────────────────────────────────────────── */
+.right-panel {
+  width: 42%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2);
+  overflow: hidden;
+}
+
+.right-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ai-title { font-size: 15px; font-weight: 700; }
+
+.deep-badge {
+  margin-left: 9px;
+  padding: 2px 7px;
+  background: rgba(74,158,255,.12);
+  border: 1px solid rgba(74,158,255,.35);
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.online {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+/* Chat area */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.chat-area::-webkit-scrollbar { width: 3px; }
+.chat-area::-webkit-scrollbar-track { background: transparent; }
+.chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Messages */
+.msg { display: flex; gap: 0; max-width: 100%; }
+.msg.user { justify-content: flex-end; }
+.msg.ai { justify-content: flex-start; }
+
+.bubble {
+  max-width: 82%;
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.msg.user .bubble {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px 4px 12px 12px;
+}
+.msg.ai .bubble {
+  background: var(--bg4);
+  color: var(--text1);
+  border-radius: 4px 12px 12px 12px;
+}
+.msg.ai .bubble.streaming::after {
+  content: '▋';
+  display: inline;
+  color: var(--accent);
+  animation: blink .8s step-end infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Steps */
+.steps-card {
+  max-width: 90%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--text3);
+  transition: color .3s;
+}
+.step-row.active { color: var(--text2); }
+.step-row.done { color: var(--green); }
+
+.step-icon {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  flex-shrink: 0;
+  transition: all .3s;
+}
+.step-row.active .step-icon {
+  border-color: var(--accent);
+  background: rgba(74,158,255,.15);
+  animation: stepPulse 1.2s ease-in-out infinite;
+}
+.step-row.done .step-icon {
+  border-color: var(--green);
+  background: rgba(0,200,83,.15);
+  color: var(--green);
+}
+@keyframes stepPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Analysis Card */
+.analysis-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  max-width: 95%;
+  animation: fadeUp .4s ease;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+.ac-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 11px;
+}
+.ac-symbol { font-weight: 700; font-size: 14px; }
+.ac-badge {
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ac-badge.buy { background: rgba(0,200,83,.15); color: var(--green); border: 1px solid rgba(0,200,83,.35); }
+.ac-badge.sell { background: rgba(255,59,48,.15); color: var(--red); border: 1px solid rgba(255,59,48,.35); }
+.ac-badge.hold { background: rgba(255,184,0,.15); color: var(--yellow); border: 1px solid rgba(255,184,0,.35); }
+
+.ac-conf-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.ac-conf-label span { font-size: 11px; font-weight: 600; color: var(--text1); letter-spacing: 0; }
+
+.ac-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
+.ac-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 2px; transition: width .8s ease; }
+
+.ac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ac-field { background: var(--bg); border-radius: 7px; padding: 9px 10px; }
+.ac-fl { font-size: 9.5px; color: var(--text2); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 3px; }
+.ac-fv { font-size: 13px; font-weight: 600; color: var(--text1); line-height: 1.3; }
+.ac-fv.green { color: var(--green); }
+.ac-fv.red { color: var(--red); }
+
+/* Quick actions */
+.quick-actions {
+  padding: 8px 14px;
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.quick-btn {
+  padding: 5px 11px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.quick-btn:hover {
+  background: rgba(74,158,255,.1);
+  border-color: rgba(74,158,255,.4);
+  color: var(--accent);
+}
+
+/* Input */
+.input-area {
+  padding: 10px 14px 14px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.chat-input {
+  flex: 1;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 13px;
+  color: var(--text1);
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color .2s;
+  font-family: inherit;
+}
+.chat-input:focus { border-color: rgba(74,158,255,.45); }
+.chat-input::placeholder { color: var(--text3); }
+.chat-input:disabled { opacity: .5; cursor: not-allowed; }
+
+.send-btn {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .18s, opacity .18s;
+}
+.send-btn:hover { background: #3A8EEF; }
+.send-btn:disabled { background: var(--border); cursor: not-allowed; opacity: .6; }
+.send-btn svg { width: 16px; height: 16px; }
+
+/* Intro hint */
+.chat-hint {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text3);
+  font-size: 13px;
+  text-align: center;
+  padding: 40px 24px;
+}
+.chat-hint .hint-icon { font-size: 36px; margin-bottom: 4px; }
+.chat-hint h3 { font-size: 15px; font-weight: 600; color: var(--text2); }
+
+/* Thinking bubble heartbeat lines */
+.bubble.thinking {
+  color: var(--text3);
+  min-height: 28px;
+}
+.hb-thinking-line {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'Courier New', monospace;
+  line-height: 1.8;
+  opacity: 0.75;
+}
+.hb-thinking-line.latest {
+  color: var(--text2);
+  opacity: 1;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══ LEFT PANEL ═══════════════════════════════════════ -->
+  <div class="left-panel">
+    <header class="left-header">
+      <div class="logo">Crypto<em>Mind</em></div>
+
+      <div class="symbol-tabs">
+        <button class="tab active" data-symbol="BTCUSDT">BTC</button>
+        <button class="tab" data-symbol="ETHUSDT">ETH</button>
+        <button class="tab" data-symbol="SOLUSDT">SOL</button>
+        <div class="sym-search" id="sym-search">
+          <button class="tab sym-search-btn" id="sym-search-btn" title="搜索币种">+</button>
+          <input class="sym-search-input" id="sym-search-input" placeholder="如 OP" maxlength="12" style="display:none"/>
+        </div>
+      </div>
+
+      <a class="tv-link" href="https://www.tradingview.com" target="_blank" rel="noopener">
+        TradingView ↗
+      </a>
+    </header>
+
+    <div class="tv-wrapper">
+      <div id="tv-chart-container"></div>
+    </div>
+
+    <div class="portfolio-bar">
+      <div class="portfolio-label">MY PORTFOLIO<br>用户持仓</div>
+      <div class="portfolio-items" id="portfolio-items">
+        <div class="portfolio-empty">加载持仓中...</div>
+      </div>
+      <div class="portfolio-total" id="portfolio-total" style="display:none">
+        <div class="pt-label">TOTAL VALUE</div>
+        <div class="pt-value" id="portfolio-total-val">$0</div>
+      </div>
+    </div>
+
+    <div class="watchlist-panel">
+      <div class="watchlist-header">
+        <span class="watchlist-title">WATCHLIST</span>
+      </div>
+      <div class="watchlist-input-row">
+        <input class="watchlist-input" id="watchlist-input" placeholder="如 SOLUSDT" maxlength="20" />
+        <button class="watchlist-add-btn" id="watchlist-add-btn">+ 添加</button>
+      </div>
+      <div class="watchlist-items" id="watchlist-items">
+        <div class="watchlist-empty">暂无自选监控</div>
+      </div>
+    </div>
+
+    <div class="news-panel">
+      <div class="news-panel-header">
+        <span class="news-panel-title">MARKET NEWS</span>
+        <div class="news-refresh-dot" id="news-dot"></div>
+      </div>
+      <div class="news-list" id="news-list">
+        <div class="news-empty">加载新闻中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL ══════════════════════════════════════ -->
+  <div class="right-panel">
+    <header class="right-header">
+      <span class="ai-title">AI Analyst</span>
+      <span class="deep-badge">DEEP MODE</span>
+      <div class="online"><div class="dot"></div>在线</div>
+    </header>
+
+    <div class="chat-area" id="chat-area">
+      <div class="chat-hint" id="chat-hint">
+        <div class="hint-icon">🤖</div>
+        <h3>CryptoMind AI 助手</h3>
+        <p>输入问题或点击下方快捷按钮开始分析</p>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+<!--      <button class="quick-btn" data-q="BTC现在能买吗？">能买吗</button>-->
+<!--      <button class="quick-btn" data-q="帮我分析当前币种">分析风险</button>-->
+      <button class="quick-btn" data-q="加密市场的最新讯息">最新消息</button>
+      <button class="quick-btn" data-q="帮我分析一下当前持仓情况">持仓分析</button>
+    </div>
+
+    <div class="input-area">
+      <input
+        class="chat-input"
+        id="chat-input"
+        type="text"
+        placeholder="问 CryptoMind..."
+        autocomplete="off"
+        maxlength="500"
+      />
+      <button class="send-btn" id="send-btn" title="发送">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TradingView -->
+<script src="https://s3.tradingview.com/tv.js"></script>
+
+<script>
+'use strict';
+
+// ── Session & state ────────────────────────────────────────
+let sessionId = localStorage.getItem('cm_session') || '';
+let activeSymbol = 'BTCUSDT';
+let isStreaming = false;
+
+// Streaming state
+let streamCtx = {
+  msgEl:      null,   // current AI bubble element
+  stepsEl:    null,   // steps card element
+  isDeep:     false,
+  step1Done:  false,
+  step2Done:  false,
+  step3Done:  false,
+  contentStarted: false,
+};
+
+// ── TradingView ────────────────────────────────────────────
+function initTVWidget(symbol) {
+  const container = document.getElementById('tv-chart-container');
+  container.innerHTML = '';
+  if (typeof TradingView === 'undefined') return;
+  const widget = new TradingView.widget({
+    container_id:        'tv-chart-container',
+    autosize:            true,
+    symbol:              'BINANCE:' + symbol,
+    interval:            '60',
+    timezone:            'Asia/Shanghai',
+    theme:               'dark',
+    style:               '1',
+    locale:              'zh_CN',
+    toolbar_bg:          '#0D1017',
+    enable_publishing:   false,
+    hide_side_toolbar:   false,
+    allow_symbol_change: true,
+    withdateranges:      true,
+    details:             false,
+    hotlist:             false,
+    calendar:            false,
+  });
+  // onChartReady is only available in the full Charting Library, not the free tv.js widget.
+  // Guard to prevent TypeError from crashing the entire script.
+  try {
+    if (widget && typeof widget.onChartReady === 'function') {
+      widget.onChartReady(() => {
+        try {
+          widget.chart().onSymbolChanged().subscribe(null, (symbolData) => {
+            const raw = (symbolData.name || '').replace('BINANCE:', '');
+            activeSymbol = raw.includes('USDT') ? raw : raw + 'USDT';
+            document.querySelectorAll('.tab').forEach(t =>
+              t.classList.toggle('active', t.dataset.symbol === activeSymbol));
+          });
+        } catch(_) {}
+      });
+    }
+  } catch(_) {}
+}
+
+// Wait for TV script then init
+(function waitTV() {
+  if (typeof TradingView !== 'undefined') {
+    initTVWidget(activeSymbol);
+  } else {
+    setTimeout(waitTV, 200);
+  }
+})();
+
+// Symbol tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const sym = tab.dataset.symbol;
+    if (sym === activeSymbol) return;
+    activeSymbol = sym;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    initTVWidget(sym);
+  });
+});
+
+// Symbol search
+const symSearchBtn   = document.getElementById('sym-search-btn');
+const symSearchInput = document.getElementById('sym-search-input');
+
+symSearchBtn.addEventListener('click', () => {
+  const visible = symSearchInput.style.display !== 'none';
+  if (visible) {
+    symSearchInput.style.display = 'none';
+    symSearchInput.value = '';
+  } else {
+    symSearchInput.style.display = '';
+    symSearchInput.focus();
+  }
+});
+
+symSearchInput.addEventListener('keydown', e => {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter') {
+    const raw = symSearchInput.value.trim().toUpperCase();
+    if (!raw) return;
+    const sym = raw.endsWith('USDT') ? raw : raw + 'USDT';
+    activeSymbol = sym;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    initTVWidget(sym);
+    symSearchInput.style.display = 'none';
+    symSearchInput.value = '';
+  }
+  if (e.key === 'Escape') {
+    symSearchInput.style.display = 'none';
+    symSearchInput.value = '';
+  }
+});
+
+// ── Portfolio ──────────────────────────────────────────────
+async function loadPortfolio() {
+  try {
+    const res = await fetch('/api/market/portfolio');
+    if (!res.ok) return;
+    const items = await res.json();
+    renderPortfolio(items);
+  } catch(_) { /* silently fail */ }
+}
+
+function renderPortfolio(items) {
+  const container = document.getElementById('portfolio-items');
+  const totalEl   = document.getElementById('portfolio-total');
+  const totalValEl = document.getElementById('portfolio-total-val');
+
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="portfolio-empty">暂无持仓数据</div>';
+    return;
+  }
+
+  const stableCoins = ['USDT', 'BUSD', 'USDC', 'DAI'];
+  items = items.filter(item => !stableCoins.includes(item.asset));
+  items.sort((a, b) => (b.totalValue ?? 0) - (a.totalValue ?? 0));
+
+  let totalValue = 0;
+  container.innerHTML = items.map(item => {
+    const coin    = item.asset || '';
+    const amount  = item.free ?? 0;
+    const value   = item.totalValue ?? 0;
+    totalValue += value;
+    const tradingSymbol = coin === 'USDT' ? 'BTCUSDT' : (coin + 'USDT');
+    return `<div class="portfolio-item" data-symbol="${tradingSymbol}"
+                 onclick="onPortfolioClick('${tradingSymbol}','${coin}')">
+      <div class="pi-name">${coin}</div>
+      <div class="pi-amount">${Number(amount).toFixed(4)} ${coin}</div>
+      <div class="pi-change up">$${Number(value).toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  if (totalValue > 0) {
+    totalEl.style.display = '';
+    totalValEl.textContent = '$' + Number(totalValue).toLocaleString('en-US', {maximumFractionDigits: 0});
+  }
+}
+
+function onPortfolioClick(symbol, coin) {
+  activeSymbol = symbol;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.symbol === symbol));
+  initTVWidget(symbol);
+}
+
+loadPortfolio();
+
+// ── News Panel ───────────────────────────────────────────────
+async function loadNews() {
+  const list = document.getElementById('news-list');
+  const dot  = document.getElementById('news-dot');
+  dot.classList.add('loading');
+  try {
+    const res = await fetch('/api/news/latest?limit=10');
+    if (!res.ok) throw new Error('fail');
+    const items = await res.json();
+    if (!items || items.length === 0) {
+      list.innerHTML = '<div class="news-empty">暂无新闻数据</div>';
+      return;
+    }
+    list.innerHTML = items.map(n => {
+      const src  = escHtml(n.source || '');
+      const time = n.publishedAt ? new Date(n.publishedAt).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      const url  = escHtml(n.url || '#');
+      const title = escHtml(n.title || '');
+      return `<div class="news-item" onclick="window.open('${url}','_blank')">
+        <div class="news-item-title">${title}</div>
+        <div class="news-item-meta">
+          <span>${src}</span>
+          <span>${time}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(_) {
+    list.innerHTML = '<div class="news-empty">新闻加载失败</div>';
+  } finally {
+    dot.classList.remove('loading');
+  }
+}
+
+loadNews();
+setInterval(loadNews, 60000);
+
+// ── Watchlist ──────────────────────────────────────────────
+const watchlistItems  = document.getElementById('watchlist-items');
+const watchlistInput  = document.getElementById('watchlist-input');
+const watchlistAddBtn = document.getElementById('watchlist-add-btn');
+
+async function loadWatchlist() {
+  try {
+    const res  = await fetch('/api/alert/watchlist');
+    const list = await res.json();
+    if (!list.length) {
+      watchlistItems.innerHTML = '<div class="watchlist-empty">暂无自选监控</div>';
+      return;
+    }
+    watchlistItems.innerHTML = list.map(item => `
+      <div class="watchlist-item">
+        <span class="watchlist-item-symbol">${escHtml(item.symbol)}</span>
+        <button class="watchlist-del-btn" onclick="deleteWatchlist(${item.id})" title="删除">×</button>
+      </div>
+    `).join('');
+  } catch(_) {
+    watchlistItems.innerHTML = '<div class="watchlist-empty">加载失败</div>';
+  }
+}
+
+async function deleteWatchlist(id) {
+  await fetch('/api/alert/watchlist/' + id, { method: 'DELETE' });
+  loadWatchlist();
+}
+
+async function addWatchlist() {
+  const raw = watchlistInput.value.trim().toUpperCase();
+  if (!raw) return;
+  const symbol = raw.endsWith('USDT') ? raw : raw + 'USDT';
+  watchlistAddBtn.disabled = true;
+  watchlistAddBtn.textContent = '验证中...';
+  try {
+    const res  = await fetch('/api/alert/watchlist', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ symbol }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      watchlistItems.innerHTML =
+        `<div class="watchlist-empty" style="color:var(--red)">${escHtml(err.error || '添加失败，请检查币种名称')}</div>`;
+      return;
+    }
+    watchlistInput.value = '';
+    loadWatchlist();
+  } finally {
+    watchlistAddBtn.disabled = false;
+    watchlistAddBtn.textContent = '+ 添加';
+  }
+}
+
+watchlistAddBtn.addEventListener('click', addWatchlist);
+watchlistInput.addEventListener('keydown', e => {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter') addWatchlist();
+});
+
+loadWatchlist();
+
+// ── Chat ───────────────────────────────────────────────────
+const chatArea  = document.getElementById('chat-area');
+const chatInput = document.getElementById('chat-input');
+const sendBtn   = document.getElementById('send-btn');
+
+function scrollBottom() {
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function hideHint() {
+  const h = document.getElementById('chat-hint');
+  if (h) h.remove();
+}
+
+function addUserBubble(text) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
+  chatArea.appendChild(div);
+  scrollBottom();
+}
+
+function createAIBubble() {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble thinking';
+  div.appendChild(bubble);
+  chatArea.appendChild(div);
+  scrollBottom();
+  return bubble;
+}
+
+function appendText(bubbleEl, text) {
+  // 原始 markdown 存入 data-raw，供 finalizeAIBubble 转链接用
+  const raw = (bubbleEl.dataset.raw || '') + text;
+  bubbleEl.dataset.raw = raw;
+  // 流式阶段去掉 URL 只显示标题，用户看不到裸链接
+  bubbleEl.textContent = raw.replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1');
+  scrollBottom();
+}
+
+function finalizeAIBubble(bubbleEl) {
+  // 优先从 data-raw 取原始 markdown（含链接），fallback 到 textContent
+  const raw = (bubbleEl.dataset.raw || bubbleEl.textContent || '')
+    .replace(/```json[\s\S]*?```/g, '')
+    .trim();
+  delete bubbleEl.dataset.raw;
+  // 先转义 HTML，再替换换行，最后把 [title](url) 转为隐式可点击链接
+  let html = escHtml(raw).replace(/\n/g, '<br>');
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, title, url) => {
+    const cleanUrl = url.replace(/&amp;/g, '&');
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;cursor:pointer">${title}</a>`;
+  });
+  bubbleEl.innerHTML = html;
+  bubbleEl.classList.remove('streaming', 'thinking');
+}
+
+function appendHeartbeat(msg) {
+  if (!msg || !streamCtx.msgEl) return;
+  // Only append into the thinking bubble
+  if (!streamCtx.msgEl.classList.contains('thinking')) return;
+  // Dim previous latest line
+  streamCtx.msgEl.querySelectorAll('.hb-thinking-line.latest')
+    .forEach(el => el.classList.remove('latest'));
+  const line = document.createElement('div');
+  line.className = 'hb-thinking-line latest';
+  line.textContent = '⟳ ' + msg;
+  streamCtx.msgEl.appendChild(line);
+  scrollBottom();
+}
+
+function createStepsCard() {
+  const div = document.createElement('div');
+  div.className = 'steps-card';
+  div.innerHTML = `
+    <div class="step-row active" data-step="1">
+      <div class="step-icon">1</div>
+      <span class="step-text">情报收集中...</span>
+    </div>
+    <div class="step-row" data-step="2">
+      <div class="step-icon">2</div>
+      <span class="step-text">专家辩论中...</span>
+    </div>
+    <div class="step-row" data-step="3">
+      <div class="step-icon">3</div>
+      <span class="step-text">CIO 裁决中...</span>
+    </div>`;
+  chatArea.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function setStepDone(stepsEl, n, label) {
+  const row = stepsEl.querySelector(`[data-step="${n}"]`);
+  if (!row) return;
+  row.classList.remove('active');
+  row.classList.add('done');
+  row.querySelector('.step-icon').textContent = '✓';
+  if (label) row.querySelector('.step-text').textContent = label;
+}
+
+function setStepActive(stepsEl, n) {
+  const row = stepsEl.querySelector(`[data-step="${n}"]`);
+  if (!row) return;
+  row.classList.add('active');
+}
+
+function renderAnalysisCard(card) {
+  if (!card) return;
+
+  const suggestion = card.suggestion || '';
+  const badgeCls = suggestion.includes('买') ? 'buy'
+                 : suggestion.includes('卖') ? 'sell'
+                 : 'hold';
+  const conf = Math.min(100, Math.max(0, card.confidence || 0));
+
+  const div = document.createElement('div');
+  div.className = 'analysis-card';
+  div.innerHTML = `
+    <div class="ac-header">
+      <div class="ac-symbol">${escHtml(card.symbol || '')}</div>
+      <div class="ac-badge ${badgeCls}">${escHtml(suggestion)}</div>
+    </div>
+    <div class="ac-conf-label">
+      <span>CONFIDENCE SCORE</span>
+      <span>${conf} / 100</span>
+    </div>
+    <div class="ac-bar"><div class="ac-fill" style="width:0%"></div></div>
+    <div class="ac-grid">
+      <div class="ac-field">
+        <div class="ac-fl">ENTRY</div>
+        <div class="ac-fv">${escHtml(card.entryPrice || '—')}</div>
+      </div>
+      <div class="ac-field">
+        <div class="ac-fl">STOP LOSS</div>
+        <div class="ac-fv red">${escHtml(card.stopLoss || '—')}</div>
+      </div>
+      <div class="ac-field">
+        <div class="ac-fl">TARGET 1 / 2</div>
+        <div class="ac-fv green">${escHtml(card.takeProfitTargets || '—')}</div>
+      </div>
+      <div class="ac-field">
+        <div class="ac-fl">POSITION SIZE</div>
+        <div class="ac-fv">${escHtml(card.positionSize || '—')}</div>
+      </div>
+    </div>`;
+  chatArea.appendChild(div);
+  scrollBottom();
+
+  // Animate confidence bar
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      div.querySelector('.ac-fill').style.width = conf + '%';
+    });
+  });
+}
+
+// ── SSE via fetch + ReadableStream ────────────────────────
+async function sendMessage(question) {
+  if (isStreaming || !question.trim()) return;
+  isStreaming = true;
+  sendBtn.disabled = true;
+  chatInput.disabled = true;
+
+  hideHint();
+  addUserBubble(question);
+
+  // Reset stream context; immediately create thinking bubble so heartbeats have somewhere to go
+  streamCtx = {
+    msgEl:          null,
+    stepsEl:        null,
+    isDeep:         false,
+    step1Done:      false,
+    step2Done:      false,
+    step3Done:      false,
+    contentStarted: false,
+  };
+  streamCtx.msgEl = createAIBubble();
+
+  try {
+    const res = await fetch('/api/chat/ask', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        question,
+        symbol:    activeSymbol,
+        sessionId: sessionId,
+      }),
+    });
+
+    if (!res.ok) {
+      appendErrorMsg('请求失败（' + res.status + '），请稍后重试');
+      return;
+    }
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Split on SSE event boundaries (\n\n)
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        if (block.trim()) parseSSEBlock(block);
+      }
+    }
+
+  } catch (err) {
+    appendErrorMsg('连接中断，请重试');
+    console.error('[SSE]', err);
+  } finally {
+    if (streamCtx.msgEl) finalizeAIBubble(streamCtx.msgEl);
+    isStreaming = false;
+    sendBtn.disabled = false;
+    chatInput.disabled = false;
+    chatInput.focus();
+  }
+}
+
+function parseSSEBlock(block) {
+  let eventType = 'message';
+  let dataStr   = '';
+
+  for (const line of block.split('\n')) {
+    if (line.startsWith('event:')) {
+      eventType = line.slice(6).trim();
+    } else if (line.startsWith('data:')) {
+      dataStr = line.slice(5).trim();
+    }
+  }
+
+  if (!dataStr) return;
+  let data;
+  try { data = JSON.parse(dataStr); }
+  catch { return; }
+
+  // Capture sessionId from first event
+  if (data.sessionId && data.sessionId !== sessionId) {
+    sessionId = data.sessionId;
+    localStorage.setItem('cm_session', sessionId);
+  }
+
+  // Route by data.type (new), fall back to SSE event name for compatibility
+  const msgType = data.type || (eventType === 'done' ? 'DONE' : 'CONTENT');
+
+  if (msgType === 'HEARTBEAT') {
+    appendHeartbeat(data.content);
+    updateStepsFromHeartbeat(data.content);
+  } else if (msgType === 'DONE') {
+    handleDone(data);
+  } else {
+    handleContent(data);
+  }
+}
+
+function updateStepsFromHeartbeat(msg) {
+  if (!msg) return;
+  if (msg.includes('[情报员]')) {
+    if (!streamCtx.stepsEl) {
+      streamCtx.isDeep = true;
+      streamCtx.stepsEl = createStepsCard();
+    }
+  } else if (msg.includes('[专家团]') && !streamCtx.step1Done) {
+    if (streamCtx.stepsEl) {
+      setStepDone(streamCtx.stepsEl, 1, '情报收集完成');
+      setStepActive(streamCtx.stepsEl, 2);
+      streamCtx.step1Done = true;
+    }
+  } else if (msg.includes('[CIO]') && !streamCtx.step2Done) {
+    if (streamCtx.stepsEl) {
+      setStepDone(streamCtx.stepsEl, 2, '专家辩论结束');
+      setStepActive(streamCtx.stepsEl, 3);
+      streamCtx.step2Done = true;
+    }
+  }
+}
+
+function handleContent(data) {
+  const content = data.content;
+  if (!content) return;
+
+  if (content === 'AI分析失败，请稍后重试' || content === '数据获取失败，请稍后重试') {
+    appendErrorMsg(content);
+    return;
+  }
+
+  // First content chunk: transition thinking bubble → streaming bubble
+  if (!streamCtx.contentStarted) {
+    streamCtx.msgEl.innerHTML = '';
+    streamCtx.msgEl.classList.remove('thinking');
+    streamCtx.msgEl.classList.add('streaming');
+    streamCtx.contentStarted = true;
+  }
+  appendText(streamCtx.msgEl, content);
+}
+
+function handleDone(data) {
+  // Finalize steps
+  if (streamCtx.stepsEl) {
+    if (!streamCtx.step1Done) setStepDone(streamCtx.stepsEl, 1, '情报收集完成');
+    if (!streamCtx.step2Done) {
+      const conf = data.analysisCard?.confidence;
+      const label = conf != null
+        ? `专家对线完成 · 评分 ${conf}/100`
+        : '专家对线完成';
+      setStepDone(streamCtx.stepsEl, 2, label);
+    }
+    setStepDone(streamCtx.stepsEl, 3, 'CIO 裁决完成');
+  }
+
+  if (streamCtx.msgEl) {
+    finalizeAIBubble(streamCtx.msgEl);
+    streamCtx.msgEl = null;
+  }
+
+  // Render analysis card
+  if (data.analysisCard) {
+    renderAnalysisCard(data.analysisCard);
+  }
+}
+
+function appendErrorMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = `<div class="bubble" style="color:var(--red)">${escHtml(text)}</div>`;
+  chatArea.appendChild(div);
+  scrollBottom();
+}
+
+// ── Quick actions ──────────────────────────────────────────
+document.querySelectorAll('.quick-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (isStreaming) return;
+    const q = btn.dataset.q;
+    chatInput.value = q;
+    sendMessage(q);
+    chatInput.value = '';
+  });
+});
+
+// ── Input send ─────────────────────────────────────────────
+function triggerSend() {
+  const q = chatInput.value.trim();
+  if (!q || isStreaming) return;
+  chatInput.value = '';
+  sendMessage(q);
+}
+
+sendBtn.addEventListener('click', triggerSend);
+chatInput.addEventListener('keydown', e => {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    triggerSend();
+  }
+});
+
+// ── Util ───────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// Focus input on load
+chatInput.focus();
+</script>
+</body>
+</html>

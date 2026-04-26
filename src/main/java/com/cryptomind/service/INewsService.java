@@ -16,7 +16,7 @@ public interface INewsService {
 
     /**
      * 定时拉取最新新闻并向量化存入 Elasticsearch。
-     * 由 @Scheduled 每30分钟自动调用，使用 ES Upsert 去重，无需手动过滤。
+     * 由 @Scheduled 每6小时自动调用，清空旧数据后写入最新一批，保证 ES 内容时效性。
      *
      * @throws NewsApiException 外部API调用失败时抛出
      */

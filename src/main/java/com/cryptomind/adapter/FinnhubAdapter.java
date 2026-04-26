@@ -30,7 +30,6 @@ import java.util.List;
  * 模块：News
  */
 @Slf4j
-@Primary
 @Component
 @RequiredArgsConstructor
 public class FinnhubAdapter implements NewsAdapter {

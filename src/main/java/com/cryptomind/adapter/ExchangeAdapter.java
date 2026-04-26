@@ -35,6 +35,18 @@ public interface ExchangeAdapter {
     List<BigDecimal[]> getKlines(String symbol, String interval) throws ExchangeApiException;
 
     /**
+     * 获取指定交易对的K线数据（自定义limit）。
+     * 返回的 BigDecimal[] 格式：[openTimeMs, open, high, low, close, volume]
+     *
+     * @param symbol   交易对，如 BTCUSDT
+     * @param interval K线周期，如 5m / 1h / 1d
+     * @param limit    返回根数，最大1000
+     * @return K线列表，每根为长度6的BigDecimal数组
+     * @throws ExchangeApiException 接口调用失败时抛出
+     */
+    List<BigDecimal[]> getKlines(String symbol, String interval, int limit) throws ExchangeApiException;
+
+    /**
      * 获取账户持仓列表（调用需要签名的私有接口）。
      * 返回原始持仓数据，currentPrice 和 totalValue 由 Service 层补充。
      *

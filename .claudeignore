@@ -4,3 +4,4 @@ target/
 dep-tree.txt
 HELP.md
 .mvn/
+docs/

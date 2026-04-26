@@ -32,7 +32,7 @@ public class BinanceAdapter implements ExchangeAdapter {
 
     private static final String BASE_URL = "https://api.binance.com";
 
-    /** K线强制拉取200根，满足MACD(12/26/9)等指标的预热需求 */
+    /** K线默认拉取200根，满足MACD(12/26/9)等指标的预热需求 */
     private static final int KLINE_LIMIT = 200;
 
     /** HMAC算法名称 */
@@ -74,7 +74,7 @@ public class BinanceAdapter implements ExchangeAdapter {
 
     /**
      * {@inheritDoc}
-     * 调用币安 GET /api/v3/klines 接口，强制 limit=200 以满足EMA预热需求。
+     * 调用币安 GET /api/v3/klines 接口，limit=200 以满足EMA预热需求。
      * 返回格式：每根K线为 [openTimeMs, open, high, low, close, volume]。
      *
      * @param symbol   交易对，如 BTCUSDT
@@ -84,9 +84,25 @@ public class BinanceAdapter implements ExchangeAdapter {
      */
     @Override
     public List<BigDecimal[]> getKlines(String symbol, String interval) throws ExchangeApiException {
+        return getKlines(symbol, interval, KLINE_LIMIT);
+    }
+
+    /**
+     * {@inheritDoc}
+     * 调用币安 GET /api/v3/klines 接口，支持自定义 limit。
+     * 返回格式：每根K线为 [openTimeMs, open, high, low, close, volume]。
+     *
+     * @param symbol   交易对，如 BTCUSDT
+     * @param interval K线周期，如 5m / 1h / 1d
+     * @param limit    返回根数
+     * @return K线数据列表
+     * @throws ExchangeApiException HTTP请求失败或响应解析异常时抛出
+     */
+    @Override
+    public List<BigDecimal[]> getKlines(String symbol, String interval, int limit) throws ExchangeApiException {
         String url = BASE_URL + "/api/v3/klines?symbol=" + symbol
                 + "&interval=" + interval
-                + "&limit=" + KLINE_LIMIT;
+                + "&limit=" + limit;
         String body = executeGet(url);
 
         try {
