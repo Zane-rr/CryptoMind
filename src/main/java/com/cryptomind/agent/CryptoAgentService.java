@@ -163,7 +163,7 @@ public class CryptoAgentService {
             String userContent = question;
             if (intent.needsNews) {
                 pushHeartbeat(emitter, "正在获取实时新闻...");
-                String newsData = marketTools.searchNews(intent.searchKeywords);
+                String newsData = marketTools.searchAndCompressNews(intent.searchKeywords);
                 log.info("QUICK新闻预取完成，keywords={}，数据长度={}", intent.searchKeywords, newsData.length());
                 userContent = "【实时新闻数据（以下内容来自实时搜索，你必须且只能基于这些新闻回答，禁止使用训练数据中的新闻）】\n" +
                         newsData + "\n\n用户问题：" + question;

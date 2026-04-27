@@ -11,10 +11,10 @@
   - DEEP：LangGraph4J 多轮 Agent 编排，工具调用（行情 + 技术指标 + 新闻）
 - **实时行情**：对接 Binance REST API，获取价格、24h 涨跌幅、OHLCV
 - **技术指标**：基于 Ta4j 计算 RSI、MACD、布林带（1h K 线）
-- **多源新闻 RAG**：
+- **多源新闻**：
   - RSS 聚合（CoinDesk / CoinTelegraph / Decrypt）每 10 分钟自动拉取
   - Tavily 实时搜索兜底补充
-  - 新闻向量化后存入 Elasticsearch，支持语义检索 + 关键词降级
+  - 全量新闻缓存到 Redis，由 LLM 过滤最相关的 5-8 条并压缩摘要
 - **价格预警**：自定义阈值规则，触发后通过钉钉 Webhook 推送通知
 - **会话历史**：MySQL 持久化多轮对话，支持上下文管理
 - **桌面客户端**：Electron 包装，支持普通窗口和悬浮侧边栏（Always-on-top）两种模式
@@ -28,9 +28,9 @@
 | 框架 | Spring Boot 3.4.5 |
 | AI / Agent | Spring AI 1.0.0 + LangGraph4J 1.5.14 |
 | LLM | DeepSeek（OpenAI 兼容接口） |
-| 向量存储 | Elasticsearch 8.x（Spring Data ES） |
 | 关系数据库 | MySQL 8（JPA / Hibernate） |
-| 缓存 | Redis |
+| 缓存 | Redis（新闻全量缓存 + 过滤结果缓存 + 对话上下文） |
+| 向量存储 | Elasticsearch 8.x（基础设施保留，当前暂不写入） |
 | 技术指标 | Ta4j 0.16 |
 | HTTP 客户端 | OkHttp 4.12 |
 | 桌面客户端 | Electron 31 |
@@ -64,9 +64,9 @@ CryptoMind/
 │   ├── service/impl/
 │   │   ├── ChatServiceImpl.java
 │   │   ├── MarketServiceImpl.java
-│   │   ├── NewsServiceImpl.java     # 新闻调度、ES 存储、向量检索
+│   │   ├── NewsServiceImpl.java     # 新闻调度、Redis 缓存、LLM 过滤
 │   │   └── AlertServiceImpl.java
-│   ├── entity/                   # JPA + ES 实体
+│   ├── entity/                   # JPA 实体
 │   ├── dto/                      # 请求 / 响应 DTO
 │   └── exception/                # 全局异常处理
 ├── src/main/resources/
@@ -88,7 +88,6 @@ CryptoMind/
 - Maven 3.8+
 - MySQL 8
 - Redis
-- Elasticsearch 8.x（需开启向量字段支持）
 - Node.js 18+（Electron 客户端，可选）
 
 ### 1. 配置环境变量
@@ -97,11 +96,6 @@ CryptoMind/
 # LLM
 export DEEPSEEK_API_KEY=sk-xxx
 export DEEPSEEK_API_MODEL=deepseek-chat
-
-# Embedding（独立服务或兼容 OpenAI 接口）
-export EMBEDDING_API_KEY=xxx
-export EMBEDDING_API_URL=https://your-embedding-api
-export EMBEDDING_API_MODEL=text-embedding-3-small
 
 # 数据库
 export MYSQL_HOST=localhost
@@ -113,12 +107,6 @@ export MYSQL_PASSWORD=your_password
 export REDIS_HOST=localhost
 export REDIS_PORT=6379
 export REDIS_PASSWORD=your_password
-
-# Elasticsearch
-export ES_HOST=localhost
-export ES_PORT=9200
-export ES_USERNAME=elastic
-export ES_PASSWORD=your_password
 
 # Binance（行情无需 Key，持仓需要）
 export BINANCE_API_KEY=
@@ -178,7 +166,7 @@ npm run start:float
 | `/api/market/price/{symbol}` | GET | 实时价格 |
 | `/api/market/indicators/{symbol}` | GET | 技术指标 |
 | `/api/news/latest` | GET | 最新新闻列表 |
-| `/api/news/search` | POST | 新闻语义检索 |
+| `/api/news/search` | POST | 新闻检索 |
 | `/api/alert/rules` | GET/POST | 查询 / 创建预警规则 |
 
 ---
@@ -186,23 +174,24 @@ npm run start:float
 ## 新闻数据流
 
 ```
-启动时立即拉取
+启动时立即拉取，每 10 分钟定时重复
 RSS (CoinDesk / CoinTelegraph / Decrypt)
         +
 Tavily Search
         |
         v
-  向量化（Embedding API）
+  合并去重（RSS 优先，有精确 pubDate）
         |
         v
-  Elasticsearch（存储，无向量时也保存）
-        |
-   每 10 分钟定时重复
+  Redis（news:latest，TTL 12h，全量 JSON）
 
 用户查询时：
-  ES 向量检索（降级→关键词检索）
-        +
-  Tavily 实时补充
+  从 Redis 读取全量新闻（~50-70 条）
+        |
+        v
+  LLM 过滤（searchAndCompressNews）
+  筛选最相关 5-8 条 + 压缩为一句话摘要
+  结果缓存 Redis（news:filtered:{md5}，TTL 10min）
         |
         v
   注入 LLM Prompt
@@ -221,14 +210,14 @@ Tavily Search
    +-- needsMarket=true / needsNews=true
    |
    +-- QUICK 路径（轻量）
-   |      预取新闻数据 → 注入 Prompt → 流式回复
+   |      服务端预取新闻数据 → 注入 Prompt → 流式回复
    |
    +-- DEEP 路径（多步推理）
           LangGraph4J 图
           MarketTools (@Tool)
           ├── getPrice()
           ├── getIndicators()
-          ├── searchNews()
+          ├── searchAndCompressNews()
           └── getPortfolio()
           → 综合分析回复
 ```

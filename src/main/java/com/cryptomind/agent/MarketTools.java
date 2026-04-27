@@ -1,17 +1,21 @@
 package com.cryptomind.agent;
 
 import com.cryptomind.dto.NewsDTO;
-import com.cryptomind.dto.NewsSearchRequest;
-import com.cryptomind.dto.NewsSearchResponse;
 import com.cryptomind.service.IMarketService;
 import com.cryptomind.service.INewsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
  * Spring AI Tool工具类，提供4个@Tool方法供LLM通过Function Calling自主调用。
@@ -23,8 +27,13 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class MarketTools {
 
+    private static final String REDIS_KEY_FILTERED_NEWS = "news:filtered:";
+    private static final Duration FILTERED_NEWS_TTL = Duration.ofMinutes(10);
+
     private final IMarketService marketService;
     private final INewsService newsService;
+    private final ChatClient chatClient;
+    private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
     /**
@@ -67,54 +76,84 @@ public class MarketTools {
      * @param keywords 英文搜索关键词，如 Bitcoin BTC crypto
      * @return 格式化新闻列表字符串，或失败提示
      */
-    /** 常见加密货币 ticker，用于从关键词中提取 symbol 以优化 Tavily 搜索范围 */
-    private static final java.util.Set<String> KNOWN_TICKERS = java.util.Set.of(
-            "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "DOT", "MATIC",
-            "LINK", "UNI", "ATOM", "LTC", "TRX", "OP", "ARB", "SUI", "APT", "TON"
-    );
-
-    @Tool(description = "搜索加密货币相关新闻，输入英文关键词效果最佳，如Bitcoin BTC crypto")
-    public String searchNews(String keywords) {
+    /**
+     * 从 Redis 取全量新闻，调用 LLM 筛选与用户问题最相关的5-8条并压缩为摘要返回。
+     * 结果缓存 Redis 10分钟（key: news:filtered:{symbol}:{questionMD5}），相同问题复用缓存跳过 LLM。
+     *
+     * @param question 用户问题或搜索关键词（中英文均可）
+     * @return 格式化的筛选新闻摘要，或失败提示
+     */
+    @Tool(description = "搜索并筛选与用户问题最相关的加密货币新闻，输入用户问题或关键词")
+    public String searchAndCompressNews(String question) {
         try {
-            NewsSearchRequest req = new NewsSearchRequest();
-            req.setQuery(keywords);
-            // 从关键词中提取 ticker，传入 symbol 后 Tavily 会搜索该币种的实时新闻
-            req.setSymbol(extractTicker(keywords));
-            req.setLimit(15);
-            NewsSearchResponse resp = newsService.searchNews(req);
-            if (resp.getNews() == null || resp.getNews().isEmpty()) {
+            // 缓存 key 用问题 MD5，避免 key 过长
+            String cacheKey = REDIS_KEY_FILTERED_NEWS + md5Short(question);
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                log.info("searchAndCompressNews 命中缓存，question={}", question);
+                return cached;
+            }
+
+            // 从 Redis 取全量新闻
+            List<NewsDTO> allNews = newsService.getLatestNews(60);
+            if (allNews.isEmpty()) {
+                return "暂无相关新闻数据";
+            }
+
+            // 将全量新闻格式化为 LLM 可读的文本
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/dd HH:mm");
+            StringBuilder newsList = new StringBuilder();
+            int idx = 1;
+            for (NewsDTO n : allNews) {
+                String time = n.getPublishedAt() != null ? n.getPublishedAt().format(fmt) : "";
+                newsList.append("[").append(idx++).append("] ")
+                        .append(n.getTitle());
+                if (!time.isBlank()) newsList.append(" (").append(time).append(")");
+                if (n.getSummary() != null && !n.getSummary().isBlank()) {
+                    newsList.append("\n").append(n.getSummary());
+                }
+                newsList.append("\n\n");
+            }
+
+            // LLM 筛选并压缩
+            String prompt = "以下是最新加密货币新闻列表：\n\n" + newsList +
+                    "\n用户问题：" + question +
+                    "\n\n请从以上新闻中筛选最相关的5-8条，每条压缩为一句话摘要（保留原标题和时间）。" +
+                    "格式：[序号] 标题 (时间)\n一句话摘要\n\n" +
+                    "只输出筛选结果，不要解释，不相关的新闻直接忽略。";
+
+            String result = chatClient.prompt()
+                    .user(prompt)
+                    .call()
+                    .content();
+
+            if (result == null || result.isBlank()) {
                 return "暂无相关新闻";
             }
-            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/dd HH:mm");
-            StringBuilder sb = new StringBuilder();
-            int idx = 1;
-            for (NewsDTO n : resp.getNews()) {
-                String time   = n.getPublishedAt() != null ? n.getPublishedAt().format(fmt) : "";
-                String source = n.getSource() != null ? n.getSource() : "unknown";
-                // 标题用 markdown 链接格式，前端可渲染为可点击超链接
-                String url = n.getUrl() != null && !n.getUrl().isBlank() ? n.getUrl() : "";
-                sb.append("[").append(idx++).append("] ");
-                if (!url.isBlank()) {
-                    sb.append("[").append(n.getTitle()).append("](").append(url).append(")");
-                } else {
-                    sb.append(n.getTitle());
-                }
-                if (!time.isBlank()) {
-                    sb.append(" (").append(time).append(")");
-                }
-                sb.append(" [").append(source).append("]");
-                sb.append("\n");
-                if (n.getSummary() != null && !n.getSummary().isBlank()) {
-                    sb.append(n.getSummary()).append("\n");
-                }
-                sb.append("\n");
-            }
-            String result = sb.toString().trim();
-            log.info("searchNews 工具实际返回内容：\n{}", result);
+
+            // 写入缓存
+            redisTemplate.opsForValue().set(cacheKey, result, FILTERED_NEWS_TTL);
+            log.info("searchAndCompressNews 完成，question={}，结果长度={}", question, result.length());
             return result;
         } catch (Exception e) {
-            log.warn("searchNews失败，原因：{}", e.getMessage());
+            log.warn("searchAndCompressNews失败，原因：{}", e.getMessage());
             return "新闻数据获取失败";
+        }
+    }
+
+    /**
+     * 取字符串 MD5 的前16位，用于构造缓存 key。
+     */
+    private String md5Short(String text) {
+        if (text == null || text.isBlank()) return "empty";
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(text.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString().substring(0, 16);
+        } catch (Exception e) {
+            return String.valueOf(text.hashCode());
         }
     }
 
@@ -135,22 +174,4 @@ public class MarketTools {
         }
     }
 
-    /**
-     * 从关键词字符串中提取第一个已知的加密货币 ticker。
-     * 大写匹配，如 "bitcoin BTC price" → "BTC"。
-     *
-     * @param keywords 搜索关键词
-     * @return ticker 字符串，未匹配到时返回 null
-     */
-    private String extractTicker(String keywords) {
-        if (keywords == null || keywords.isBlank()) return null;
-        String upper = keywords.toUpperCase();
-        for (String ticker : KNOWN_TICKERS) {
-            // 整词匹配，避免把 "ATOMIC" 误识别为 "AT"
-            if (upper.matches(".*\\b" + ticker + "\\b.*")) {
-                return ticker;
-            }
-        }
-        return null;
-    }
 }

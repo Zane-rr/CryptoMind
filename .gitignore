@@ -36,3 +36,6 @@ build/
 .env
 application-local.properties
 
+### Resume / personal docs ###
+CryptoMind_Resume_Summary.md
+
