@@ -30,7 +30,6 @@
 | LLM | DeepSeek（OpenAI 兼容接口） |
 | 关系数据库 | MySQL 8（JPA / Hibernate） |
 | 缓存 | Redis（新闻全量缓存 + 过滤结果缓存 + 对话上下文） |
-| 向量存储 | Elasticsearch 8.x（基础设施保留，当前暂不写入） |
 | 技术指标 | Ta4j 0.16 |
 | HTTP 客户端 | OkHttp 4.12 |
 | 桌面客户端 | Electron 31 |
